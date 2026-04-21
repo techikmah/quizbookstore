@@ -1,0 +1,2101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PageVault — Premium eBook Store</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lora:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy: #0d1b2a;
+      --navy-mid: #162335;
+      --navy-light: #1e3050;
+      --gold: #c9a84c;
+      --gold-light: #e8c97a;
+      --gold-dim: #8a6d2e;
+      --cream: #f5f0e8;
+      --cream-dark: #e8e0d0;
+      --text-main: #f5f0e8;
+      --text-muted: #a0b0c0;
+      --text-dark: #0d1b2a;
+      --accent-red: #b84040;
+      --card-bg: #162335;
+      --overlay: rgba(13, 27, 42, 0.92);
+      --radius: 4px;
+      --shadow: 0 8px 40px rgba(0,0,0,0.4);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background-color: var(--navy);
+      color: var(--text-main);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 400;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--navy); }
+    ::-webkit-scrollbar-thumb { background: var(--gold-dim); border-radius: 3px; }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 900;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1.2rem 3rem;
+      background: linear-gradient(to bottom, rgba(13,27,42,0.98) 0%, rgba(13,27,42,0) 100%);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(201,168,76,0.12);
+      transition: background 0.3s;
+    }
+    nav.scrolled { background: rgba(13,27,42,0.98); }
+
+    .nav-logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 0.02em;
+      text-decoration: none;
+    }
+    .nav-logo span { color: var(--text-main); font-style: italic; }
+
+    .nav-links { display: flex; gap: 2.5rem; align-items: center; }
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--gold); }
+
+    .nav-cart {
+      display: flex; align-items: center; gap: 0.5rem;
+      background: var(--gold); color: var(--navy);
+      border: none; cursor: pointer;
+      padding: 0.55rem 1.2rem;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500; font-size: 0.85rem;
+      letter-spacing: 0.05em;
+      border-radius: 2px;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .nav-cart:hover { background: var(--gold-light); }
+    .nav-cart:active { transform: scale(0.97); }
+    .cart-count {
+      background: var(--navy);
+      color: var(--gold);
+      border-radius: 50%;
+      width: 20px; height: 20px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.72rem; font-weight: 700;
+    }
+
+    .nav-downloads-btn {
+      display: none;
+      align-items: center; gap: 0.5rem;
+      background: transparent;
+      border: 1px solid var(--gold);
+      color: var(--gold);
+      cursor: pointer;
+      padding: 0.5rem 1.1rem;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500; font-size: 0.82rem;
+      letter-spacing: 0.05em;
+      border-radius: 2px;
+      transition: all 0.2s;
+      animation: pulseGold 2s ease-in-out 3;
+    }
+    .nav-downloads-btn:hover { background: rgba(201,168,76,0.12); }
+    .nav-downloads-btn.visible { display: flex; }
+    @keyframes pulseGold {
+      0%,100% { box-shadow: 0 0 0 0 rgba(201,168,76,0); }
+      50% { box-shadow: 0 0 0 6px rgba(201,168,76,0.2); }
+    }
+
+    /* ── DOWNLOAD MODAL ── */
+    .download-modal-overlay {
+      position: fixed; inset: 0; z-index: 1200;
+      background: rgba(13,27,42,0.92);
+      backdrop-filter: blur(10px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 1.5rem;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    .download-modal-overlay.open { opacity: 1; pointer-events: all; }
+
+    .download-modal {
+      background: var(--navy-mid);
+      border: 1px solid rgba(201,168,76,0.25);
+      border-radius: 10px;
+      width: min(560px, 100%);
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+      transform: scale(0.95);
+      transition: transform 0.3s;
+    }
+    .download-modal-overlay.open .download-modal { transform: scale(1); }
+
+    .download-modal-header {
+      padding: 2rem 2rem 1.5rem;
+      border-bottom: 1px solid rgba(201,168,76,0.12);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .download-modal-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.4rem; color: var(--cream);
+    }
+    .download-modal-close {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 1.4rem;
+      transition: color 0.2s;
+    }
+    .download-modal-close:hover { color: var(--cream); }
+
+    .download-modal-body { padding: 1.5rem 2rem 2rem; }
+
+    .download-success-banner {
+      background: linear-gradient(135deg, rgba(201,168,76,0.12), rgba(201,168,76,0.05));
+      border: 1px solid rgba(201,168,76,0.3);
+      border-radius: 6px;
+      padding: 1rem 1.2rem;
+      display: flex; align-items: center; gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .download-success-icon { font-size: 2rem; }
+    .download-success-text {}
+    .download-success-text strong {
+      display: block; color: var(--cream);
+      font-size: 0.95rem; margin-bottom: 0.15rem;
+    }
+    .download-success-text span {
+      font-size: 0.8rem; color: var(--text-muted);
+    }
+
+    .download-section-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--gold-dim);
+      margin-bottom: 1rem;
+    }
+
+    .download-book-row {
+      background: var(--navy);
+      border: 1px solid rgba(201,168,76,0.1);
+      border-radius: 6px;
+      padding: 1rem 1.2rem;
+      display: flex; align-items: center; gap: 1rem;
+      margin-bottom: 0.8rem;
+      transition: border-color 0.2s;
+    }
+    .download-book-row:hover { border-color: rgba(201,168,76,0.3); }
+
+    .download-book-cover {
+      width: 44px; height: 58px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.45rem;
+      color: rgba(255,255,255,0.6);
+      text-align: center;
+    }
+    .download-book-info { flex: 1; min-width: 0; }
+    .download-book-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 0.9rem; color: var(--cream);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-bottom: 0.15rem;
+    }
+    .download-book-meta {
+      font-size: 0.75rem; color: var(--text-muted);
+    }
+
+    .download-btn {
+      display: flex; align-items: center; gap: 0.5rem;
+      background: var(--gold);
+      color: var(--navy);
+      border: none; cursor: pointer;
+      padding: 0.55rem 1.1rem;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 700; font-size: 0.78rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border-radius: 3px;
+      text-decoration: none;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+    .download-btn:hover { background: var(--gold-light); transform: translateY(-1px); }
+    .download-btn:active { transform: translateY(0); }
+    .download-btn.downloaded {
+      background: rgba(201,168,76,0.15);
+      color: var(--gold);
+      border: 1px solid rgba(201,168,76,0.3);
+    }
+
+    .download-footer-note {
+      margin-top: 1.5rem;
+      padding-top: 1.2rem;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      text-align: center;
+    }
+    .download-footer-note a { color: var(--gold); text-decoration: none; }
+    .download-footer-note a:hover { text-decoration: underline; }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      display: flex; align-items: center;
+      position: relative;
+      overflow: hidden;
+      padding: 8rem 3rem 5rem;
+    }
+
+    .hero-bg {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 60% 80% at 70% 50%, rgba(201,168,76,0.07) 0%, transparent 70%),
+        radial-gradient(ellipse 80% 60% at 20% 80%, rgba(30,48,80,0.8) 0%, transparent 60%),
+        linear-gradient(135deg, #0d1b2a 0%, #162335 50%, #0d1b2a 100%);
+    }
+
+    .hero-grid-lines {
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(201,168,76,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(201,168,76,0.04) 1px, transparent 1px);
+      background-size: 60px 60px;
+    }
+
+    .hero-content {
+      position: relative; z-index: 1;
+      max-width: 680px;
+    }
+
+    .hero-tag {
+      display: inline-block;
+      font-size: 0.72rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--gold);
+      border: 1px solid var(--gold-dim);
+      padding: 0.35rem 0.85rem;
+      margin-bottom: 1.8rem;
+      border-radius: 2px;
+    }
+
+    .hero h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(3rem, 6vw, 5.5rem);
+      line-height: 1.05;
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+      color: var(--cream);
+    }
+    .hero h1 em {
+      font-style: italic;
+      color: var(--gold);
+    }
+
+    .hero p {
+      font-family: 'Lora', serif;
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      max-width: 480px;
+      margin-bottom: 2.5rem;
+      line-height: 1.75;
+    }
+
+    .hero-cta {
+      display: flex; gap: 1rem; flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      background: var(--gold);
+      color: var(--navy);
+      border: none; cursor: pointer;
+      padding: 0.9rem 2.2rem;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500; font-size: 0.9rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border-radius: 2px;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(201,168,76,0.3);
+    }
+    .btn-primary:hover {
+      background: var(--gold-light);
+      box-shadow: 0 6px 30px rgba(201,168,76,0.45);
+      transform: translateY(-1px);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid rgba(160,176,192,0.3);
+      cursor: pointer;
+      padding: 0.9rem 2.2rem;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 400; font-size: 0.9rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border-radius: 2px;
+      text-decoration: none;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .btn-ghost:hover { color: var(--cream); border-color: rgba(160,176,192,0.6); }
+
+    .hero-floaters {
+      position: absolute; right: 0; top: 50%;
+      transform: translateY(-50%);
+      width: 45%;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 1.2rem;
+      padding: 2rem;
+      z-index: 1;
+    }
+
+    .floater-book {
+      background: var(--navy-mid);
+      border: 1px solid rgba(201,168,76,0.15);
+      border-radius: 6px;
+      padding: 1.2rem;
+      animation: float 4s ease-in-out infinite;
+      transition: transform 0.3s;
+    }
+    .floater-book:nth-child(2) { animation-delay: 1s; margin-top: 2rem; }
+    .floater-book:nth-child(3) { animation-delay: 2s; margin-top: -1rem; }
+    .floater-book:nth-child(4) { animation-delay: 0.5s; margin-top: 1rem; }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .floater-cover {
+      width: 100%; aspect-ratio: 3/4;
+      border-radius: 4px;
+      margin-bottom: 0.7rem;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Playfair Display', serif;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.7);
+      text-align: center;
+      padding: 0.5rem;
+    }
+    .floater-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--cream);
+      margin-bottom: 0.2rem;
+    }
+    .floater-price {
+      font-size: 0.72rem;
+      color: var(--gold);
+      font-weight: 500;
+    }
+
+    /* ── STATS STRIP ── */
+    .stats-strip {
+      background: var(--navy-mid);
+      border-top: 1px solid rgba(201,168,76,0.1);
+      border-bottom: 1px solid rgba(201,168,76,0.1);
+      padding: 1.8rem 3rem;
+      display: flex; justify-content: center; gap: 5rem;
+      flex-wrap: wrap;
+    }
+    .stat { text-align: center; }
+    .stat-num {
+      font-family: 'Playfair Display', serif;
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: var(--gold);
+      display: block;
+    }
+    .stat-label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    /* ── SECTION ── */
+    .section { padding: 6rem 3rem; }
+    .section-header {
+      display: flex; justify-content: space-between; align-items: flex-end;
+      margin-bottom: 3.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid rgba(201,168,76,0.15);
+    }
+    .section-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 0.5rem;
+    }
+    .section-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.8rem, 3vw, 2.5rem);
+      font-weight: 700;
+      color: var(--cream);
+    }
+
+    /* ── BOOK GRID ── */
+    .books-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 2rem;
+    }
+
+    .book-card {
+      background: var(--card-bg);
+      border: 1px solid rgba(201,168,76,0.1);
+      border-radius: 6px;
+      overflow: hidden;
+      transition: transform 0.3s, border-color 0.3s, box-shadow 0.3s;
+      cursor: pointer;
+      position: relative;
+    }
+    .book-card:hover {
+      transform: translateY(-6px);
+      border-color: rgba(201,168,76,0.4);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+
+    .book-cover {
+      width: 100%;
+      aspect-ratio: 3/4;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column;
+      font-family: 'Playfair Display', serif;
+      color: rgba(255,255,255,0.85);
+      text-align: center;
+      padding: 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .book-cover::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 40%;
+      background: linear-gradient(transparent, rgba(0,0,0,0.4));
+    }
+    .book-cover-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      line-height: 1.3;
+      z-index: 1;
+      position: relative;
+    }
+    .book-cover-author {
+      font-style: italic;
+      font-size: 0.75rem;
+      margin-top: 0.4rem;
+      color: rgba(255,255,255,0.65);
+      z-index: 1;
+      position: relative;
+    }
+
+    .book-badge {
+      position: absolute; top: 0.8rem; right: 0.8rem;
+      background: var(--gold);
+      color: var(--navy);
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.25rem 0.6rem;
+      border-radius: 2px;
+      z-index: 2;
+    }
+
+    .book-info {
+      padding: 1.2rem;
+    }
+    .book-category {
+      font-size: 0.68rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--gold-dim);
+      margin-bottom: 0.4rem;
+    }
+    .book-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--cream);
+      margin-bottom: 0.2rem;
+    }
+    .book-author {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-style: italic;
+      margin-bottom: 0.8rem;
+    }
+    .book-meta {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+    .book-price-block { display: flex; align-items: baseline; gap: 0.5rem; }
+    .book-price {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--gold);
+    }
+    .book-price-usd {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+    .book-pages {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    .add-to-cart-btn {
+      width: 100%;
+      background: transparent;
+      border: 1px solid rgba(201,168,76,0.3);
+      color: var(--gold);
+      padding: 0.6rem;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border-radius: 2px;
+      margin-top: 0.8rem;
+      transition: all 0.2s;
+    }
+    .add-to-cart-btn:hover {
+      background: var(--gold);
+      color: var(--navy);
+      border-color: var(--gold);
+    }
+    .add-to-cart-btn.added {
+      background: var(--gold);
+      color: var(--navy);
+      border-color: var(--gold);
+    }
+
+    /* ── FEATURES ── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 2rem;
+    }
+    .feature-card {
+      background: var(--navy-mid);
+      border: 1px solid rgba(201,168,76,0.1);
+      border-radius: 6px;
+      padding: 2rem;
+      transition: border-color 0.3s;
+    }
+    .feature-card:hover { border-color: rgba(201,168,76,0.35); }
+    .feature-icon {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+    .feature-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.1rem;
+      color: var(--cream);
+      margin-bottom: 0.5rem;
+    }
+    .feature-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* ── PAYMENT SECTION ── */
+    .payment-section {
+      background: var(--navy-mid);
+      border-top: 1px solid rgba(201,168,76,0.1);
+      border-bottom: 1px solid rgba(201,168,76,0.1);
+    }
+    .payment-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 3rem;
+      align-items: center;
+    }
+    .payment-text { }
+    .payment-gateways {
+      display: flex; flex-direction: column; gap: 1rem;
+    }
+    .gateway-card {
+      background: var(--navy);
+      border: 1px solid rgba(201,168,76,0.15);
+      border-radius: 6px;
+      padding: 1.4rem 1.6rem;
+      display: flex; align-items: center; gap: 1.2rem;
+    }
+    .gateway-icon {
+      width: 48px; height: 48px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem;
+      flex-shrink: 0;
+    }
+    .gateway-info { flex: 1; }
+    .gateway-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 1rem;
+      color: var(--cream);
+      font-weight: 600;
+      margin-bottom: 0.15rem;
+    }
+    .gateway-desc {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .gateway-flag {
+      font-size: 1.4rem;
+    }
+
+    /* ── NEWSLETTER ── */
+    .newsletter {
+      background: linear-gradient(135deg, var(--navy-light), var(--navy-mid));
+      border: 1px solid rgba(201,168,76,0.15);
+      border-radius: 8px;
+      padding: 3.5rem;
+      text-align: center;
+      margin: 0 3rem 6rem;
+    }
+    .newsletter h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 2rem;
+      color: var(--cream);
+      margin-bottom: 0.8rem;
+    }
+    .newsletter p {
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+      font-size: 0.95rem;
+    }
+    .newsletter-form {
+      display: flex; gap: 0.8rem; max-width: 440px; margin: 0 auto;
+    }
+    .newsletter-form input {
+      flex: 1;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(201,168,76,0.25);
+      color: var(--cream);
+      padding: 0.8rem 1.2rem;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      border-radius: 2px;
+      outline: none;
+    }
+    .newsletter-form input::placeholder { color: var(--text-muted); }
+    .newsletter-form input:focus { border-color: var(--gold); }
+
+    /* ── FOOTER ── */
+    footer {
+      background: rgba(0,0,0,0.3);
+      border-top: 1px solid rgba(201,168,76,0.1);
+      padding: 3rem;
+    }
+    .footer-grid {
+      display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 3rem; margin-bottom: 3rem;
+    }
+    .footer-brand .nav-logo { display: block; margin-bottom: 1rem; }
+    .footer-brand p { font-size: 0.85rem; color: var(--text-muted); line-height: 1.7; }
+    .footer-col h4 {
+      font-family: 'Playfair Display', serif;
+      color: var(--cream);
+      margin-bottom: 1rem;
+      font-size: 0.95rem;
+    }
+    .footer-col ul { list-style: none; }
+    .footer-col ul li { margin-bottom: 0.6rem; }
+    .footer-col ul li a {
+      color: var(--text-muted); text-decoration: none;
+      font-size: 0.85rem; transition: color 0.2s;
+    }
+    .footer-col ul li a:hover { color: var(--gold); }
+    .footer-bottom {
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding-top: 1.5rem;
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 1rem;
+    }
+    .footer-bottom p { font-size: 0.78rem; color: var(--text-muted); }
+    .payment-badges { display: flex; gap: 0.8rem; align-items: center; }
+    .payment-badge {
+      background: var(--navy-mid);
+      border: 1px solid rgba(201,168,76,0.2);
+      padding: 0.3rem 0.8rem;
+      border-radius: 3px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+
+    /* ── CART DRAWER ── */
+    .drawer-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(13,27,42,0.7);
+      backdrop-filter: blur(4px);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    .drawer-overlay.open { opacity: 1; pointer-events: all; }
+
+    .cart-drawer {
+      position: fixed; right: 0; top: 0; bottom: 0;
+      width: min(420px, 100vw);
+      background: var(--navy-mid);
+      border-left: 1px solid rgba(201,168,76,0.15);
+      z-index: 1001;
+      display: flex; flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: -20px 0 60px rgba(0,0,0,0.4);
+    }
+    .cart-drawer.open { transform: translateX(0); }
+
+    .drawer-header {
+      padding: 1.8rem 1.5rem 1.2rem;
+      border-bottom: 1px solid rgba(201,168,76,0.12);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .drawer-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.3rem;
+      color: var(--cream);
+    }
+    .drawer-close {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 1.4rem;
+      transition: color 0.2s; line-height: 1;
+    }
+    .drawer-close:hover { color: var(--cream); }
+
+    .cart-items {
+      flex: 1; overflow-y: auto;
+      padding: 1rem 1.5rem;
+    }
+
+    .cart-empty {
+      text-align: center; padding: 4rem 2rem;
+      color: var(--text-muted);
+    }
+    .cart-empty-icon { font-size: 3rem; margin-bottom: 1rem; }
+    .cart-empty p { font-family: 'Lora', serif; font-style: italic; }
+
+    .cart-item {
+      display: flex; gap: 1rem; align-items: flex-start;
+      padding: 1rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .cart-item-cover {
+      width: 50px; height: 65px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.5rem;
+      color: rgba(255,255,255,0.7);
+      text-align: center;
+    }
+    .cart-item-info { flex: 1; }
+    .cart-item-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 0.9rem;
+      color: var(--cream);
+      margin-bottom: 0.15rem;
+    }
+    .cart-item-author {
+      font-size: 0.75rem; color: var(--text-muted);
+      font-style: italic; margin-bottom: 0.4rem;
+    }
+    .cart-item-price { color: var(--gold); font-size: 0.9rem; font-weight: 500; }
+    .cart-item-remove {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 0.8rem;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      transition: color 0.2s; padding: 0;
+    }
+    .cart-item-remove:hover { color: var(--accent-red); }
+
+    .drawer-footer {
+      padding: 1.5rem;
+      border-top: 1px solid rgba(201,168,76,0.12);
+    }
+    .cart-total {
+      display: flex; justify-content: space-between;
+      align-items: baseline; margin-bottom: 0.4rem;
+    }
+    .cart-total-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .cart-total-amount {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.6rem;
+      color: var(--gold);
+    }
+    .cart-total-usd {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      text-align: right;
+      margin-bottom: 1.2rem;
+    }
+    .checkout-btn {
+      width: 100%;
+      background: var(--gold);
+      color: var(--navy);
+      border: none; cursor: pointer;
+      padding: 1rem;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 700; font-size: 0.9rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border-radius: 2px;
+      transition: background 0.2s;
+    }
+    .checkout-btn:hover { background: var(--gold-light); }
+    .checkout-btn:disabled {
+      background: rgba(201,168,76,0.2);
+      color: var(--text-muted);
+      cursor: not-allowed;
+    }
+
+    /* ── CHECKOUT MODAL ── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 1100;
+      background: rgba(13,27,42,0.9);
+      backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 1.5rem;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+    .modal {
+      background: var(--navy-mid);
+      border: 1px solid rgba(201,168,76,0.2);
+      border-radius: 8px;
+      width: min(520px, 100%);
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+      transform: scale(0.95);
+      transition: transform 0.3s;
+    }
+    .modal-overlay.open .modal { transform: scale(1); }
+
+    .modal-header {
+      padding: 2rem 2rem 1.5rem;
+      border-bottom: 1px solid rgba(201,168,76,0.12);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .modal-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.4rem;
+      color: var(--cream);
+    }
+    .modal-close {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 1.4rem;
+      transition: color 0.2s;
+    }
+    .modal-close:hover { color: var(--cream); }
+
+    .modal-body { padding: 2rem; }
+
+    .form-group { margin-bottom: 1.2rem; }
+    .form-label {
+      display: block;
+      font-size: 0.78rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.45rem;
+    }
+    .form-input {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(201,168,76,0.2);
+      color: var(--cream);
+      padding: 0.75rem 1rem;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      border-radius: 3px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-input:focus { border-color: var(--gold); }
+    .form-input::placeholder { color: rgba(160,176,192,0.5); }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+    .payment-selector {
+      margin-bottom: 1.5rem;
+    }
+    .payment-selector-label {
+      font-size: 0.78rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.8rem;
+      display: block;
+    }
+    .payment-options {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;
+    }
+    .payment-option {
+      border: 2px solid rgba(201,168,76,0.15);
+      border-radius: 6px;
+      padding: 1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--navy);
+      position: relative;
+    }
+    .payment-option:hover { border-color: rgba(201,168,76,0.4); }
+    .payment-option.selected {
+      border-color: var(--gold);
+      background: rgba(201,168,76,0.07);
+    }
+    .payment-option-flag { font-size: 1.5rem; margin-bottom: 0.4rem; }
+    .payment-option-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 0.95rem;
+      color: var(--cream);
+      margin-bottom: 0.15rem;
+    }
+    .payment-option-desc {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+    .payment-option-check {
+      position: absolute; top: 0.7rem; right: 0.7rem;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--gold);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.6rem;
+      color: var(--navy);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .payment-option.selected .payment-option-check { opacity: 1; }
+
+    .gateway-notice {
+      background: rgba(201,168,76,0.08);
+      border: 1px solid rgba(201,168,76,0.2);
+      border-radius: 4px;
+      padding: 0.8rem 1rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 1.2rem;
+      line-height: 1.5;
+    }
+    .gateway-notice strong { color: var(--gold); }
+
+    .order-summary {
+      background: var(--navy);
+      border: 1px solid rgba(201,168,76,0.12);
+      border-radius: 4px;
+      padding: 1rem 1.2rem;
+      margin-bottom: 1.5rem;
+    }
+    .order-summary-title {
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.8rem;
+    }
+    .order-line {
+      display: flex; justify-content: space-between;
+      font-size: 0.85rem;
+      color: var(--cream);
+      margin-bottom: 0.4rem;
+    }
+    .order-line-name { color: var(--text-muted); }
+    .order-divider { border: none; border-top: 1px solid rgba(255,255,255,0.06); margin: 0.6rem 0; }
+    .order-total-line {
+      display: flex; justify-content: space-between;
+      font-family: 'Playfair Display', serif;
+      color: var(--cream); font-size: 1rem;
+    }
+    .order-total-amount { color: var(--gold); font-weight: 700; }
+
+    .pay-btn {
+      width: 100%;
+      padding: 1.1rem;
+      border: none; cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 700; font-size: 0.9rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border-radius: 3px;
+      transition: all 0.2s;
+    }
+    .pay-btn-razorpay {
+      background: linear-gradient(135deg, #2D74FF, #072ECF);
+      color: white;
+    }
+    .pay-btn-razorpay:hover {
+      background: linear-gradient(135deg, #4080FF, #1A3FDF);
+      box-shadow: 0 4px 20px rgba(45,116,255,0.4);
+    }
+    .pay-btn-payoneer {
+      background: linear-gradient(135deg, #FF4F00, #e04200);
+      color: white;
+    }
+    .pay-btn-payoneer:hover {
+      background: linear-gradient(135deg, #FF6520, #f05010);
+      box-shadow: 0 4px 20px rgba(255,79,0,0.4);
+    }
+
+    .secure-note {
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.8rem;
+      display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+    }
+
+    /* ── SUCCESS MODAL ── */
+    .success-modal {
+      text-align: center; padding: 3rem 2rem;
+    }
+    .success-icon {
+      font-size: 3.5rem; margin-bottom: 1rem;
+      animation: pop 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes pop {
+      from { transform: scale(0.5); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    .success-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.8rem; color: var(--cream);
+      margin-bottom: 0.8rem;
+    }
+    .success-msg { color: var(--text-muted); line-height: 1.6; margin-bottom: 1.5rem; }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed; bottom: 2rem; left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--navy-mid);
+      border: 1px solid rgba(201,168,76,0.3);
+      color: var(--cream);
+      padding: 0.8rem 1.5rem;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      z-index: 2000;
+      transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+      white-space: nowrap;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast-icon { margin-right: 0.5rem; }
+
+    /* ── LOCATION BANNER ── */
+    .location-banner {
+      background: rgba(201,168,76,0.1);
+      border-bottom: 1px solid rgba(201,168,76,0.15);
+      padding: 0.6rem 3rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: flex; align-items: center; gap: 0.6rem;
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transition: max-height 0.5s, opacity 0.5s, padding 0.5s;
+    }
+    .location-banner.visible {
+      max-height: 50px;
+      opacity: 1;
+    }
+    .location-banner strong { color: var(--gold); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      nav { padding: 1rem 1.5rem; }
+      .nav-links { display: none; }
+      .hero { padding: 7rem 1.5rem 4rem; }
+      .hero-floaters { display: none; }
+      .hero h1 { font-size: 2.8rem; }
+      .stats-strip { gap: 2rem; padding: 1.5rem; }
+      .section { padding: 4rem 1.5rem; }
+      .payment-grid { grid-template-columns: 1fr; }
+      .footer-grid { grid-template-columns: 1fr 1fr; }
+      .newsletter { padding: 2rem 1.5rem; margin: 0 1.5rem 4rem; }
+      .newsletter-form { flex-direction: column; }
+    }
+
+    @media (max-width: 580px) {
+      .footer-grid { grid-template-columns: 1fr; }
+      .books-grid { grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+      .form-row { grid-template-columns: 1fr; }
+      .payment-options { grid-template-columns: 1fr; }
+    }
+
+    /* ── PAGE LOAD ANIMATION ── */
+    .fade-in { animation: fadeInUp 0.6s ease forwards; opacity: 0; }
+    .fade-in-delay-1 { animation-delay: 0.1s; }
+    .fade-in-delay-2 { animation-delay: 0.25s; }
+    .fade-in-delay-3 { animation-delay: 0.4s; }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- LOCATION BANNER -->
+<div class="location-banner" id="locationBanner">
+  <span>📍</span>
+  <span id="locationText">Detecting your location for the best payment experience...</span>
+</div>
+
+<!-- NAV -->
+<nav id="mainNav">
+  <a href="#" class="nav-logo">Page<span>Vault</span></a>
+  <div class="nav-links">
+    <a href="#catalog">Catalog</a>
+    <a href="#features">Features</a>
+    <a href="#payment">Payments</a>
+    <a href="#about">About</a>
+  </div>
+  <div style="display:flex;align-items:center;gap:0.8rem">
+    <button class="nav-downloads-btn" id="myDownloadsBtn" onclick="openDownloadsModal()">
+      ⬇ My Downloads
+    </button>
+    <button class="nav-cart" onclick="openCart()">
+      🛒 Cart <span class="cart-count" id="cartCount">0</span>
+    </button>
+  </div>
+</nav>
+
+<!-- DOWNLOAD MODAL -->
+<div class="download-modal-overlay" id="downloadModalOverlay">
+  <div class="download-modal">
+    <div class="download-modal-header">
+      <div class="download-modal-title">📥 My Downloads</div>
+      <button class="download-modal-close" onclick="closeDownloadsModal()">✕</button>
+    </div>
+    <div class="download-modal-body" id="downloadModalBody"></div>
+  </div>
+</div>
+
+<!-- HERO -->
+<section class="hero" id="home">
+  <div class="hero-bg"></div>
+  <div class="hero-grid-lines"></div>
+  <div class="hero-content">
+    <div class="hero-tag fade-in">✦ Premium Digital Library</div>
+    <h1 class="fade-in fade-in-delay-1">
+      Knowledge worth<br><em>reading twice.</em>
+    </h1>
+    <p class="fade-in fade-in-delay-2">
+      Handpicked eBooks across business, technology, design, and self-mastery. 
+      Download instantly. Read forever. Pay securely with local or international payment methods.
+    </p>
+    <div class="hero-cta fade-in fade-in-delay-3">
+      <a href="#catalog" class="btn-primary">Browse Catalog</a>
+      <a href="#payment" class="btn-ghost">Payment Options</a>
+    </div>
+  </div>
+
+  <div class="hero-floaters">
+    <div class="floater-book">
+      <div class="floater-cover" style="background: linear-gradient(135deg,#1a3a5c,#0d2040);">The Art of<br>Deep Work</div>
+      <div class="floater-title">The Art of Deep Work</div>
+      <div class="floater-price">₹499 / $5.99</div>
+    </div>
+    <div class="floater-book">
+      <div class="floater-cover" style="background: linear-gradient(135deg,#3d1a1a,#5c2a00);">Startup<br>Blueprint</div>
+      <div class="floater-title">Startup Blueprint</div>
+      <div class="floater-price">₹799 / $9.99</div>
+    </div>
+    <div class="floater-book">
+      <div class="floater-cover" style="background: linear-gradient(135deg,#1a3d1a,#0d2d0d);">UI Design<br>Mastery</div>
+      <div class="floater-title">UI Design Mastery</div>
+      <div class="floater-price">₹649 / $7.99</div>
+    </div>
+    <div class="floater-book">
+      <div class="floater-cover" style="background: linear-gradient(135deg,#2d1a3d,#1a0d2d);">Python<br>Unleashed</div>
+      <div class="floater-title">Python Unleashed</div>
+      <div class="floater-price">₹999 / $11.99</div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats-strip">
+  <div class="stat">
+    <span class="stat-num">12+</span>
+    <span class="stat-label">eBooks Available</span>
+  </div>
+  <div class="stat">
+    <span class="stat-num">2,400+</span>
+    <span class="stat-label">Happy Readers</span>
+  </div>
+  <div class="stat">
+    <span class="stat-num">4.9★</span>
+    <span class="stat-label">Average Rating</span>
+  </div>
+  <div class="stat">
+    <span class="stat-num">Instant</span>
+    <span class="stat-label">Digital Delivery</span>
+  </div>
+</div>
+
+<!-- CATALOG -->
+<section class="section" id="catalog">
+  <div class="section-header">
+    <div>
+      <div class="section-label">Our Collection</div>
+      <h2 class="section-title">Featured eBooks</h2>
+    </div>
+    <div style="font-size:0.82rem;color:var(--text-muted)">All include lifetime access + updates</div>
+  </div>
+  <div class="books-grid" id="booksGrid"></div>
+</section>
+
+<!-- FEATURES -->
+<section class="section" id="features" style="background:var(--navy-mid);border-top:1px solid rgba(201,168,76,0.08);border-bottom:1px solid rgba(201,168,76,0.08)">
+  <div class="section-header">
+    <div>
+      <div class="section-label">Why PageVault</div>
+      <h2 class="section-title">Crafted for readers</h2>
+    </div>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <div class="feature-title">Instant Download</div>
+      <div class="feature-desc">Get your eBook the moment payment is confirmed. No waiting, no shipping — just instant access to your purchase.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📱</div>
+      <div class="feature-title">Read Anywhere</div>
+      <div class="feature-desc">DRM-free PDF & EPUB formats compatible with Kindle, Apple Books, Google Play Books, and any PDF reader.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔄</div>
+      <div class="feature-title">Free Updates</div>
+      <div class="feature-desc">All eBooks include lifetime updates. When we revise content, you receive the updated edition at no extra cost.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔒</div>
+      <div class="feature-title">Secure Payments</div>
+      <div class="feature-desc">Razorpay for India (UPI, cards, netbanking) and Payoneer for international buyers. 256-bit SSL encrypted.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🌍</div>
+      <div class="feature-title">Global Access</div>
+      <div class="feature-desc">Seamlessly serve customers in India and across 190+ countries with localised payment experiences.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">💬</div>
+      <div class="feature-title">Dedicated Support</div>
+      <div class="feature-desc">Our support team is available to help with any payment or download issues within 24 hours.</div>
+    </div>
+  </div>
+</section>
+
+<!-- PAYMENT SECTION -->
+<section class="section payment-section" id="payment">
+  <div class="payment-grid">
+    <div class="payment-text">
+      <div class="section-label">Payment Gateways</div>
+      <h2 class="section-title">Pay your way,<br><em style="font-family:'Playfair Display',serif;font-style:italic;color:var(--gold)">wherever you are</em></h2>
+      <p style="color:var(--text-muted);margin:1.2rem 0;line-height:1.7;font-size:0.95rem">
+        We detect your location automatically and recommend the best payment method. 
+        Indian customers enjoy Razorpay with UPI, Net Banking, and all major cards. 
+        International buyers are routed to Payoneer for fast, secure global payments.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:0.5rem;font-size:0.85rem;color:var(--text-muted)">
+        <div>✓ Auto-detect your region at checkout</div>
+        <div>✓ Switch manually if you prefer</div>
+        <div>✓ 256-bit SSL encryption on all transactions</div>
+        <div>✓ Instant confirmation & download link</div>
+      </div>
+    </div>
+    <div class="payment-gateways">
+      <div class="gateway-card">
+        <div class="gateway-icon" style="background:linear-gradient(135deg,#2D74FF22,#072ECF22)">💳</div>
+        <div class="gateway-info">
+          <div class="gateway-name">Razorpay</div>
+          <div class="gateway-desc">UPI · Cards · Net Banking · Wallets · EMI<br><span style="color:var(--gold);font-size:0.75rem">Recommended for India</span></div>
+        </div>
+        <div class="gateway-flag">🇮🇳</div>
+      </div>
+      <div class="gateway-card">
+        <div class="gateway-icon" style="background:linear-gradient(135deg,#FF4F0022,#e0420022)">🌐</div>
+        <div class="gateway-info">
+          <div class="gateway-name">Payoneer</div>
+          <div class="gateway-desc">Credit Cards · Bank Transfer · 190+ Countries<br><span style="color:var(--gold);font-size:0.75rem">Recommended for International</span></div>
+        </div>
+        <div class="gateway-flag">🌍</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- NEWSLETTER -->
+<div class="newsletter" id="about">
+  <h2>Stay in the loop</h2>
+  <p>New titles added monthly. Subscribe to hear about new releases and exclusive discounts.</p>
+  <div class="newsletter-form">
+    <input type="email" placeholder="your@email.com" id="newsletterEmail" />
+    <button class="btn-primary" onclick="subscribeNewsletter()">Subscribe</button>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <a href="#" class="nav-logo">Page<span>Vault</span></a>
+      <p>A curated digital bookstore delivering premium eBooks to readers around the world. Quality knowledge, instant access, fair pricing.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Catalog</h4>
+      <ul>
+        <li><a href="#catalog">Business</a></li>
+        <li><a href="#catalog">Technology</a></li>
+        <li><a href="#catalog">Design</a></li>
+        <li><a href="#catalog">Self-Mastery</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Support</h4>
+      <ul>
+        <li><a href="mailto:support@pagevault.store">Contact Us</a></li>
+        <li><a href="#">FAQ</a></li>
+        <li><a href="#">Refund Policy</a></li>
+        <li><a href="#">Download Help</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Legal</h4>
+      <ul>
+        <li><a href="#">Privacy Policy</a></li>
+        <li><a href="#">Terms of Service</a></li>
+        <li><a href="#">Cookie Policy</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>© 2025 PageVault. All rights reserved.</p>
+    <div class="payment-badges">
+      <div class="payment-badge">🔒 SSL Secured</div>
+      <div class="payment-badge">Razorpay</div>
+      <div class="payment-badge">Payoneer</div>
+    </div>
+  </div>
+</footer>
+
+<!-- CART DRAWER -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeCart()"></div>
+<div class="cart-drawer" id="cartDrawer">
+  <div class="drawer-header">
+    <div class="drawer-title">Your Cart</div>
+    <button class="drawer-close" onclick="closeCart()">✕</button>
+  </div>
+  <div class="cart-items" id="cartItems"></div>
+  <div class="drawer-footer">
+    <div class="cart-total">
+      <span class="cart-total-label">Total (INR)</span>
+      <span class="cart-total-amount" id="cartTotalINR">₹0</span>
+    </div>
+    <div class="cart-total-usd" id="cartTotalUSD">$0.00 USD</div>
+    <button class="checkout-btn" id="checkoutBtn" onclick="openCheckout()" disabled>
+      Proceed to Checkout
+    </button>
+  </div>
+</div>
+
+<!-- CHECKOUT MODAL -->
+<div class="modal-overlay" id="checkoutOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Secure Checkout</div>
+      <button class="modal-close" onclick="closeCheckout()">✕</button>
+    </div>
+    <div class="modal-body" id="checkoutBody"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+//  DATA
+// ══════════════════════════════════════════
+const BOOKS = [
+  {
+    id: 1,
+    title: "The Art of Deep Work",
+    author: "James Calloway",
+    category: "Productivity",
+    priceINR: 499,
+    priceUSD: 5.99,
+    pages: 214,
+    badge: "Bestseller",
+    cover: "linear-gradient(145deg,#1a3a5c 0%,#0d2040 100%)",
+    desc: "Master the skill of focused work in a distracted world.",
+    file: "books/the-art-of-deep-work.pdf"
+  },
+  {
+    id: 2,
+    title: "Startup Blueprint",
+    author: "Priya Sharma",
+    category: "Business",
+    priceINR: 799,
+    priceUSD: 9.99,
+    pages: 312,
+    badge: "New",
+    cover: "linear-gradient(145deg,#3d1a1a 0%,#5c2a00 100%)",
+    desc: "From idea to IPO — a founder's complete playbook.",
+    file: "books/startup-blueprint.pdf"
+  },
+  {
+    id: 3,
+    title: "UI Design Mastery",
+    author: "Arjun Mehta",
+    category: "Design",
+    priceINR: 649,
+    priceUSD: 7.99,
+    pages: 270,
+    badge: null,
+    cover: "linear-gradient(145deg,#1a3d1a 0%,#0d2d0d 100%)",
+    desc: "Create interfaces users love, from wireframe to polished UI.",
+    file: "books/ui-design-mastery.pdf"
+  },
+  {
+    id: 4,
+    title: "Python Unleashed",
+    author: "Ravi Teja",
+    category: "Technology",
+    priceINR: 999,
+    priceUSD: 11.99,
+    pages: 480,
+    badge: "Popular",
+    cover: "linear-gradient(145deg,#2d1a3d 0%,#1a0d2d 100%)",
+    desc: "Complete Python from basics to advanced AI & automation.",
+    file: "books/python-unleashed.pdf"
+  },
+  {
+    id: 5,
+    title: "Mindful Leadership",
+    author: "Sunita Rao",
+    category: "Leadership",
+    priceINR: 549,
+    priceUSD: 6.99,
+    pages: 195,
+    badge: null,
+    cover: "linear-gradient(145deg,#2d2d0a 0%,#1a1a00 100%)",
+    desc: "Lead with clarity, empathy, and purposeful intention.",
+    file: "books/mindful-leadership.pdf"
+  },
+  {
+    id: 6,
+    title: "The Money Playbook",
+    author: "Vikram Nair",
+    category: "Finance",
+    priceINR: 699,
+    priceUSD: 8.49,
+    pages: 228,
+    badge: "New",
+    cover: "linear-gradient(145deg,#1a2d1a 0%,#0a2a0a 100%)",
+    desc: "Personal finance strategies that actually work in India and abroad.",
+    file: "books/the-money-playbook.pdf"
+  },
+  {
+    id: 7,
+    title: "Data Science Decoded",
+    author: "Aisha Krishnan",
+    category: "Technology",
+    priceINR: 1199,
+    priceUSD: 14.99,
+    pages: 540,
+    badge: "Premium",
+    cover: "linear-gradient(145deg,#0a2a3d 0%,#05161f 100%)",
+    desc: "End-to-end data science with Python, ML, and real-world projects.",
+    file: "books/data-science-decoded.pdf"
+  },
+  {
+    id: 8,
+    title: "Brand from Zero",
+    author: "Deepa Menon",
+    category: "Marketing",
+    priceINR: 599,
+    priceUSD: 7.49,
+    pages: 186,
+    badge: null,
+    cover: "linear-gradient(145deg,#3d0a1a 0%,#2d0510 100%)",
+    desc: "Build a brand that commands attention and earns loyalty.",
+    file: "books/brand-from-zero.pdf"
+  }
+];
+
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+let cart = [];
+let userCountry = null;
+let selectedGateway = null;
+
+// ══════════════════════════════════════════
+//  LOCATION DETECT
+// ══════════════════════════════════════════
+async function detectLocation() {
+  try {
+    const res = await fetch('https://ipapi.co/json/');
+    const data = await res.json();
+    userCountry = data.country_code;
+    const banner = document.getElementById('locationBanner');
+    const text = document.getElementById('locationText');
+    if (userCountry === 'IN') {
+      text.innerHTML = '🇮🇳 India detected — <strong>Razorpay</strong> (UPI, Cards, Net Banking) will be your default payment method.';
+      selectedGateway = 'razorpay';
+    } else {
+      text.innerHTML = `🌍 ${data.country_name} detected — <strong>Payoneer</strong> international payments will be your default method.`;
+      selectedGateway = 'payoneer';
+    }
+    banner.classList.add('visible');
+    setTimeout(() => banner.classList.remove('visible'), 6000);
+  } catch(e) {
+    // Silent fail — user picks manually at checkout
+  }
+}
+
+// ══════════════════════════════════════════
+//  NAV SCROLL
+// ══════════════════════════════════════════
+window.addEventListener('scroll', () => {
+  document.getElementById('mainNav').classList.toggle('scrolled', window.scrollY > 60);
+});
+
+// ══════════════════════════════════════════
+//  RENDER BOOKS
+// ══════════════════════════════════════════
+function renderBooks() {
+  const grid = document.getElementById('booksGrid');
+  grid.innerHTML = BOOKS.map(b => `
+    <div class="book-card">
+      <div class="book-cover" style="background:${b.cover}">
+        ${b.badge ? `<div class="book-badge">${b.badge}</div>` : ''}
+        <div class="book-cover-title">${b.title}</div>
+        <div class="book-cover-author">${b.author}</div>
+      </div>
+      <div class="book-info">
+        <div class="book-category">${b.category}</div>
+        <div class="book-title">${b.title}</div>
+        <div class="book-author">by ${b.author}</div>
+        <div class="book-meta">
+          <div class="book-price-block">
+            <span class="book-price">₹${b.priceINR}</span>
+            <span class="book-price-usd">/ $${b.priceUSD}</span>
+          </div>
+          <span class="book-pages">${b.pages} pages</span>
+        </div>
+        <button class="add-to-cart-btn" id="btn-${b.id}" onclick="addToCart(${b.id})">
+          + Add to Cart
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ══════════════════════════════════════════
+//  CART LOGIC
+// ══════════════════════════════════════════
+function addToCart(id) {
+  const book = BOOKS.find(b => b.id === id);
+  if (cart.find(c => c.id === id)) {
+    showToast('📚 Already in your cart!');
+    return;
+  }
+  cart.push(book);
+  updateCartUI();
+  const btn = document.getElementById(`btn-${id}`);
+  btn.textContent = '✓ In Cart';
+  btn.classList.add('added');
+  showToast(`📖 "${book.title}" added to cart`);
+}
+
+function removeFromCart(id) {
+  cart = cart.filter(c => c.id !== id);
+  updateCartUI();
+  const btn = document.getElementById(`btn-${id}`);
+  if (btn) {
+    btn.textContent = '+ Add to Cart';
+    btn.classList.remove('added');
+  }
+  renderCartItems();
+}
+
+function updateCartUI() {
+  const count = cart.length;
+  document.getElementById('cartCount').textContent = count;
+  document.getElementById('checkoutBtn').disabled = count === 0;
+  const totalINR = cart.reduce((s, b) => s + b.priceINR, 0);
+  const totalUSD = cart.reduce((s, b) => s + b.priceUSD, 0);
+  document.getElementById('cartTotalINR').textContent = `₹${totalINR.toLocaleString('en-IN')}`;
+  document.getElementById('cartTotalUSD').textContent = `$${totalUSD.toFixed(2)} USD`;
+  renderCartItems();
+}
+
+function renderCartItems() {
+  const container = document.getElementById('cartItems');
+  if (cart.length === 0) {
+    container.innerHTML = `
+      <div class="cart-empty">
+        <div class="cart-empty-icon">📭</div>
+        <p>Your cart is empty.<br>Browse our catalog to find your next read.</p>
+      </div>`;
+    return;
+  }
+  container.innerHTML = cart.map(b => `
+    <div class="cart-item">
+      <div class="cart-item-cover" style="background:${b.cover}">
+        ${b.title}
+      </div>
+      <div class="cart-item-info">
+        <div class="cart-item-title">${b.title}</div>
+        <div class="cart-item-author">${b.author}</div>
+        <div class="cart-item-price">₹${b.priceINR} / $${b.priceUSD}</div>
+      </div>
+      <button class="cart-item-remove" onclick="removeFromCart(${b.id})">Remove</button>
+    </div>
+  `).join('');
+}
+
+// ══════════════════════════════════════════
+//  CART DRAWER
+// ══════════════════════════════════════════
+function openCart() {
+  document.getElementById('drawerOverlay').classList.add('open');
+  document.getElementById('cartDrawer').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  renderCartItems();
+}
+
+function closeCart() {
+  document.getElementById('drawerOverlay').classList.remove('open');
+  document.getElementById('cartDrawer').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// ══════════════════════════════════════════
+//  CHECKOUT MODAL
+// ══════════════════════════════════════════
+function openCheckout() {
+  closeCart();
+  const totalINR = cart.reduce((s, b) => s + b.priceINR, 0);
+  const totalUSD = cart.reduce((s, b) => s + b.priceUSD, 0);
+  const defaultGateway = selectedGateway || (userCountry === 'IN' ? 'razorpay' : 'payoneer');
+
+  document.getElementById('checkoutBody').innerHTML = `
+    <div class="order-summary">
+      <div class="order-summary-title">Order Summary</div>
+      ${cart.map(b => `
+        <div class="order-line">
+          <span class="order-line-name">${b.title}</span>
+          <span>₹${b.priceINR}</span>
+        </div>`).join('')}
+      <hr class="order-divider" />
+      <div class="order-total-line">
+        <span>Total</span>
+        <span class="order-total-amount">₹${totalINR.toLocaleString('en-IN')} / $${totalUSD.toFixed(2)}</span>
+      </div>
+    </div>
+
+    <div class="form-row" style="margin-bottom:1.2rem">
+      <div class="form-group">
+        <label class="form-label">First Name</label>
+        <input class="form-input" id="firstName" placeholder="Ravi" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Last Name</label>
+        <input class="form-input" id="lastName" placeholder="Kumar" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email Address</label>
+      <input class="form-input" type="email" id="emailAddr" placeholder="ravi@example.com" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Phone (optional)</label>
+      <input class="form-input" type="tel" id="phoneNum" placeholder="+91 98765 43210" />
+    </div>
+
+    <div class="payment-selector">
+      <span class="payment-selector-label">Select Payment Method</span>
+      <div class="payment-options">
+        <div class="payment-option ${defaultGateway === 'razorpay' ? 'selected' : ''}" 
+             id="opt-razorpay" onclick="selectGateway('razorpay')">
+          <div class="payment-option-check">✓</div>
+          <div class="payment-option-flag">🇮🇳</div>
+          <div class="payment-option-name">Razorpay</div>
+          <div class="payment-option-desc">UPI · Cards · Net Banking<br>Best for India</div>
+        </div>
+        <div class="payment-option ${defaultGateway === 'payoneer' ? 'selected' : ''}"
+             id="opt-payoneer" onclick="selectGateway('payoneer')">
+          <div class="payment-option-check">✓</div>
+          <div class="payment-option-flag">🌍</div>
+          <div class="payment-option-name">Payoneer</div>
+          <div class="payment-option-desc">Cards · Bank Transfer<br>190+ Countries</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="gateway-notice" id="gatewayNotice"></div>
+
+    <button class="pay-btn" id="payNowBtn" onclick="initiatePayment()">
+      Pay Now
+    </button>
+    <div class="secure-note">🔒 Secured with 256-bit SSL encryption</div>
+  `;
+
+  selectGateway(defaultGateway, false);
+  document.getElementById('checkoutOverlay').classList.add('open');
+}
+
+function selectGateway(gw, focus = true) {
+  selectedGateway = gw;
+  document.getElementById('opt-razorpay').classList.toggle('selected', gw === 'razorpay');
+  document.getElementById('opt-payoneer').classList.toggle('selected', gw === 'payoneer');
+
+  const btn = document.getElementById('payNowBtn');
+  const notice = document.getElementById('gatewayNotice');
+  const totalINR = cart.reduce((s, b) => s + b.priceINR, 0);
+  const totalUSD = cart.reduce((s, b) => s + b.priceUSD, 0);
+
+  if (gw === 'razorpay') {
+    btn.className = 'pay-btn pay-btn-razorpay';
+    btn.textContent = `Pay ₹${totalINR.toLocaleString('en-IN')} via Razorpay`;
+    notice.innerHTML = `<strong>Razorpay:</strong> Supports UPI, all major debit/credit cards, net banking, wallets (Paytm, PhonePe), and EMI options. Payment processed in INR.`;
+  } else {
+    btn.className = 'pay-btn pay-btn-payoneer';
+    btn.textContent = `Pay $${totalUSD.toFixed(2)} via Payoneer`;
+    notice.innerHTML = `<strong>Payoneer:</strong> Accepts Visa, Mastercard, and bank transfers from 190+ countries. You'll be redirected to Payoneer's secure checkout. Payment processed in USD.`;
+  }
+}
+
+function closeCheckout() {
+  document.getElementById('checkoutOverlay').classList.remove('open');
+}
+
+// ══════════════════════════════════════════
+//  PAYMENT INITIATION
+// ══════════════════════════════════════════
+function validateCheckoutForm() {
+  const firstName = document.getElementById('firstName').value.trim();
+  const lastName = document.getElementById('lastName').value.trim();
+  const email = document.getElementById('emailAddr').value.trim();
+  if (!firstName || !lastName) { showToast('⚠️ Please enter your name'); return false; }
+  if (!email || !email.includes('@')) { showToast('⚠️ Please enter a valid email'); return false; }
+  return { firstName, lastName, email, phone: document.getElementById('phoneNum').value.trim() };
+}
+
+function initiatePayment() {
+  const form = validateCheckoutForm();
+  if (!form) return;
+
+  if (selectedGateway === 'razorpay') {
+    initiateRazorpay(form);
+  } else {
+    initiatePayoneer(form);
+  }
+}
+
+// ── RAZORPAY ──
+function initiateRazorpay(form) {
+  const totalINR = cart.reduce((s, b) => s + b.priceINR, 0);
+  const bookTitles = cart.map(b => b.title).join(', ');
+
+  // ⚠️  REPLACE WITH YOUR RAZORPAY KEY ID FROM dashboard.razorpay.com
+  const RAZORPAY_KEY = 'YOUR_RAZORPAY_KEY_ID';
+
+  if (RAZORPAY_KEY === 'YOUR_RAZORPAY_KEY_ID') {
+    // Demo mode — simulate success
+    showPaymentSuccess('razorpay', form, totalINR + ' INR');
+    return;
+  }
+
+  const options = {
+    key: RAZORPAY_KEY,
+    // Amount in paise (1 INR = 100 paise)
+    // In production, generate order_id from your backend via Razorpay Orders API
+    amount: totalINR * 100,
+    currency: 'INR',
+    name: 'PageVault',
+    description: `eBooks: ${bookTitles}`,
+    image: '',
+    // order_id: 'ORDER_ID_FROM_BACKEND', // Uncomment when you have a backend
+    prefill: {
+      name: `${form.firstName} ${form.lastName}`,
+      email: form.email,
+      contact: form.phone
+    },
+    notes: {
+      books: bookTitles
+    },
+    theme: { color: '#c9a84c' },
+    handler: function(response) {
+      showPaymentSuccess('razorpay', form, `₹${totalINR}`, response.razorpay_payment_id);
+    },
+    modal: {
+      ondismiss: function() {
+        showToast('💡 Payment cancelled. Try again when ready.');
+      }
+    }
+  };
+
+  const rzp = new Razorpay(options);
+  rzp.on('payment.failed', function(resp) {
+    showToast('❌ Payment failed: ' + resp.error.description);
+  });
+  rzp.open();
+}
+
+// ── PAYONEER ──
+function initiatePayoneer(form) {
+  const totalUSD = cart.reduce((s, b) => s + b.priceUSD, 0);
+  const bookTitles = cart.map(b => b.title).join(', ');
+
+  // ⚠️  REPLACE with your Payoneer payment page / checkout link
+  // Options:
+  //   1. Payoneer.me link: https://www.payoneer.com/solutions/payoneer-me/
+  //   2. Payoneer Checkout API link (requires Payoneer Merchant account)
+  const PAYONEER_LINK = 'https://payoneer.com/'; // Replace with your actual Payoneer payment link
+
+  if (PAYONEER_LINK === 'https://payoneer.com/') {
+    // Demo mode — simulate redirect
+    showPayoneerRedirect(form, totalUSD, bookTitles);
+    return;
+  }
+
+  const params = new URLSearchParams({
+    amount: totalUSD.toFixed(2),
+    currency: 'USD',
+    description: bookTitles,
+    customer_email: form.email,
+    customer_name: `${form.firstName} ${form.lastName}`
+  });
+
+  window.open(`${PAYONEER_LINK}?${params.toString()}`, '_blank');
+  showPaymentSuccess('payoneer', form, `$${totalUSD.toFixed(2)} USD`);
+}
+
+function showPayoneerRedirect(form, totalUSD, books) {
+  const totalUSDFixed = totalUSD.toFixed(2);
+  document.getElementById('checkoutBody').innerHTML = `
+    <div style="text-align:center;padding:2rem 1rem">
+      <div style="font-size:3rem;margin-bottom:1rem">🌐</div>
+      <h3 style="font-family:'Playfair Display',serif;color:var(--cream);margin-bottom:0.8rem">
+        Redirecting to Payoneer
+      </h3>
+      <p style="color:var(--text-muted);margin-bottom:1.5rem;line-height:1.6">
+        You'll be taken to Payoneer's secure checkout page to complete your 
+        <strong style="color:var(--gold)">$${totalUSDFixed} USD</strong> payment for:<br>
+        <em style="font-size:0.85rem">${books}</em>
+      </p>
+      <div style="background:var(--navy);border:1px solid rgba(201,168,76,0.15);border-radius:6px;padding:1rem;margin-bottom:1.5rem;font-size:0.82rem;color:var(--text-muted)">
+        After payment, you'll receive a download link at <strong style="color:var(--gold)">${form.email}</strong>
+      </div>
+      <button class="pay-btn pay-btn-payoneer" onclick="simulatePayoneerSuccess('${form.email}', '${totalUSDFixed}')">
+        Continue to Payoneer →
+      </button>
+      <div class="secure-note" style="margin-top:1rem">🔒 Secured by Payoneer's 256-bit encryption</div>
+    </div>
+  `;
+}
+
+function simulatePayoneerSuccess(email, amount) {
+  closeCheckout();
+  showPaymentSuccess('payoneer', { email, firstName: '', lastName: '' }, `$${amount} USD`);
+}
+
+// ── SHARED SUCCESS ──
+function showPaymentSuccess(gateway, form, amount, paymentId) {
+  // Save purchased books to session
+  const purchasedIds = cart.map(b => b.id);
+  const existing = JSON.parse(sessionStorage.getItem('purchasedBooks') || '[]');
+  const merged = [...new Set([...existing, ...purchasedIds])];
+  sessionStorage.setItem('purchasedBooks', JSON.stringify(merged));
+
+  closeCheckout();
+
+  // Show the download modal directly after payment
+  setTimeout(() => {
+    showDownloadModal(cart.slice(), gateway, amount, paymentId, form.email);
+    cart = [];
+    updateCartUI();
+    BOOKS.forEach(b => {
+      const btn = document.getElementById(`btn-${b.id}`);
+      if (btn) { btn.textContent = '✓ Purchased'; btn.classList.add('added'); btn.disabled = true; }
+    });
+    // Show My Downloads button in nav
+    document.getElementById('myDownloadsBtn').classList.add('visible');
+  }, 200);
+}
+
+function showDownloadModal(purchasedBooks, gateway, amount, paymentId, email) {
+  const body = document.getElementById('downloadModalBody');
+  const gwLabel = gateway === 'razorpay' ? '🇮🇳 Razorpay' : '🌍 Payoneer';
+
+  body.innerHTML = `
+    <div class="download-success-banner">
+      <div class="download-success-icon">✅</div>
+      <div class="download-success-text">
+        <strong>Payment confirmed — ${amount} via ${gwLabel}</strong>
+        <span>Receipt sent to ${email}${paymentId ? ' · Payment ID: ' + paymentId : ''}</span>
+      </div>
+    </div>
+
+    <div class="download-section-label">Your eBooks — Click to Download</div>
+
+    ${purchasedBooks.map(b => `
+      <div class="download-book-row" id="dlrow-${b.id}">
+        <div class="download-book-cover" style="background:${b.cover}">${b.title}</div>
+        <div class="download-book-info">
+          <div class="download-book-title">${b.title}</div>
+          <div class="download-book-meta">${b.author} · ${b.pages} pages · PDF</div>
+        </div>
+        <a class="download-btn" href="${b.file}" download="${b.title}.pdf"
+           onclick="markDownloaded(${b.id})">
+          ⬇ Download
+        </a>
+      </div>
+    `).join('')}
+
+    <div class="download-footer-note">
+      Files are downloaded directly to your device. 
+      You can re-access your downloads anytime this session via the 
+      <strong style="color:var(--gold)">⬇ My Downloads</strong> button in the top navigation.<br><br>
+      Need help? <a href="mailto:support@pagevault.store">support@pagevault.store</a>
+    </div>
+  `;
+
+  document.getElementById('downloadModalOverlay').classList.add('open');
+}
+
+function markDownloaded(id) {
+  setTimeout(() => {
+    const btn = document.querySelector(`#dlrow-${id} .download-btn`);
+    if (btn) { btn.textContent = '✓ Downloaded'; btn.classList.add('downloaded'); }
+  }, 800);
+}
+
+// ══════════════════════════════════════════
+//  MY DOWNLOADS (session re-access)
+// ══════════════════════════════════════════
+function openDownloadsModal() {
+  const ids = JSON.parse(sessionStorage.getItem('purchasedBooks') || '[]');
+  const books = BOOKS.filter(b => ids.includes(b.id));
+  const body = document.getElementById('downloadModalBody');
+
+  if (books.length === 0) {
+    body.innerHTML = `
+      <div style="text-align:center;padding:3rem 1rem;color:var(--text-muted)">
+        <div style="font-size:2.5rem;margin-bottom:1rem">📭</div>
+        <p style="font-family:'Lora',serif;font-style:italic">No purchases in this session.<br>Complete a purchase to access downloads here.</p>
+      </div>`;
+  } else {
+    body.innerHTML = `
+      <div class="download-section-label">Your Purchased eBooks</div>
+      ${books.map(b => `
+        <div class="download-book-row" id="dlrow-${b.id}">
+          <div class="download-book-cover" style="background:${b.cover}">${b.title}</div>
+          <div class="download-book-info">
+            <div class="download-book-title">${b.title}</div>
+            <div class="download-book-meta">${b.author} · ${b.pages} pages · PDF</div>
+          </div>
+          <a class="download-btn" href="${b.file}" download="${b.title}.pdf"
+             onclick="markDownloaded(${b.id})">
+            ⬇ Download
+          </a>
+        </div>
+      `).join('')}
+      <div class="download-footer-note">
+        Downloads are available for this browser session.<br>
+        Questions? <a href="mailto:support@pagevault.store">support@pagevault.store</a>
+      </div>`;
+  }
+
+  document.getElementById('downloadModalOverlay').classList.add('open');
+}
+
+function closeDownloadsModal() {
+  document.getElementById('downloadModalOverlay').classList.remove('open');
+}
+
+function resetStore() {
+  closeCheckout();
+  closeDownloadsModal();
+}
+
+// ══════════════════════════════════════════
+//  NEWSLETTER
+// ══════════════════════════════════════════
+function subscribeNewsletter() {
+  const email = document.getElementById('newsletterEmail').value.trim();
+  if (!email || !email.includes('@')) {
+    showToast('⚠️ Please enter a valid email'); return;
+  }
+  document.getElementById('newsletterEmail').value = '';
+  showToast('✉️ Subscribed! Watch your inbox for updates.');
+}
+
+// ══════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
+renderBooks();
+detectLocation();
+</script>
+</body>
+</html>
